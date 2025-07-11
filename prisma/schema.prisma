@@ -1,15 +1,148 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// This is your Prisma schema file.
+// Learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
+// 1. Prisma Client Generator
+// This block tells Prisma to generate the TypeScript client.
 generator client {
   provider = "prisma-client-js"
-  output   = "../app/generated/prisma"
 }
 
+// 2. Datasource
+// This block defines the connection and type of your database.
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider = "postgresql" // We are using PostgreSQL
+  url      = env("DATABASE_URL") // The database URL will be taken from the .env file
+}
+
+
+// -------------------------------------------
+// --- Next-Auth.js Models (Required) ---
+// These models are essential for the Prisma Adapter of Next-Auth.
+// -------------------------------------------
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+
+// -------------------------------------------
+// --- Application Models (Habit Tracker) ---
+// These models are custom-built for the core features of the "Habit Tracker" app.
+// -------------------------------------------
+
+// User Role Enum: To define the role of a user.
+enum UserRole {
+  USER
+  ADMIN
+}
+
+// User Model: The user of the application.
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  username      String?   @unique // For public profiles (e.g., /username)
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  role          UserRole  @default(USER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  accounts      Account[]
+  sessions      Session[]
+  habits        Habit[]     // A user can create many Habits
+  habitLogs     HabitLog[]  // A user can create many HabitLogs
+  kudos         Kudo[]      // A user can give many Kudos
+}
+
+
+// Habit Model: A habit or goal a user commits to.
+model Habit {
+  id          String   @id @default(cuid())
+  title       String
+  description String?  @db.Text
+  frequency   String   @default("daily") // e.g., "daily", "weekly"
+  color       String?  @default("#6366f1") // A color for UI representation
+  isPublic    Boolean  @default(false)    // Whether this habit appears on the public feed
+  tags        String[] @default([])      // Tags for categorizing habits
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  authorId    String
+  author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  
+  logs        HabitLog[] // A habit has many logs
+  kudos       Kudo[]     // A habit can receive many kudos
+}
+
+
+// HabitLog Model: Records a completion or entry for a specific habit on a specific date.
+model HabitLog {
+  id          String    @id @default(cuid())
+  date        DateTime  // The date for which the log is made (only the date part matters)
+  isCompleted Boolean   @default(true) // Typically true, could be used for other types of logs
+  notes       String?   @db.Text      // Optional notes for the log entry
+  
+  createdAt   DateTime  @default(now())
+
+  // Relations
+  habitId     String
+  habit       Habit     @relation(fields: [habitId], references: [id], onDelete: Cascade)
+
+  authorId    String
+  author      User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  
+  // Constraint: A user can only log a specific habit once per day.
+  @@unique([habitId, date, authorId]) 
+}
+
+
+// Kudo Model: A "like" or "encouragement" given by one user to another user's Habit.
+model Kudo {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  // Relations
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  habitId   String
+  habit     Habit    @relation(fields: [habitId], references: [id], onDelete: Cascade)
+
+  // Constraint: A user can only give one kudo to a specific habit.
+  @@unique([userId, habitId]) 
 }
