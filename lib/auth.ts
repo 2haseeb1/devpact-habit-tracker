@@ -3,7 +3,7 @@ import NextAuth from "next-auth";
 import GitHub from "next-auth/providers/github";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import prisma from "./prisma";
-import { authConfig } from "../auth.config";
+import { authConfig } from "@/auth.config";
 
 const GITHUB_ID = process.env.AUTH_GITHUB_ID;
 const GITHUB_SECRET = process.env.AUTH_GITHUB_SECRET;

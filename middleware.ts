@@ -1,18 +1,16 @@
 // middleware.ts
+
 import NextAuth from "next-auth";
-import { authConfig } from "@/auth.config";
+import { authConfig } from "./auth.config";
 
 export default NextAuth(authConfig).auth;
 
 export const config = {
   /**
-   * middleware শুধুমাত্র এই রুটগুলোতে চলবে।
-   * এটি নিশ্চিত করে যে শুধুমাত্র লগইন করা ব্যবহারকারীরাই এই পেজগুলো দেখতে পারবে।
+   * middleware প্রায় সব রুটে চলবে, কিছু ব্যতিক্রম ছাড়া।
+   * এই `matcher`-টি Next.js-এর ইন্টারনাল ফাইল এবং Auth.js-এর নিজস্ব
+   * API রুটগুলোকে বাদ দিয়ে বাকি সব রুটে middleware চালাবে।
+   * এটি রিডাইরেক্ট লুপ প্রতিরোধ করার জন্য সবচেয়ে নির্ভরযোগ্য পদ্ধতি।
    */
-  matcher: [
-    "/dashboard/:path*",
-    "/feed/:path*",
-    "/habits/:path*",
-    "/settings/:path*",
-  ],
+  matcher: ["/((?!api/auth|_next/static|_next/image|favicon.ico).*)"],
 };

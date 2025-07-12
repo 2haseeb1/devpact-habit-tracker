@@ -1,4 +1,5 @@
 // auth.config.ts
+
 import type { NextAuthConfig } from "next-auth";
 
 export const authConfig = {
@@ -10,21 +11,24 @@ export const authConfig = {
   trustHost: true,
 
   callbacks: {
-    authorized({ auth }) {
+    authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
 
-      // Since the matcher is already filtering for protected routes,
-      // the only thing we need to do here is check if the user is logged in.
-      // If they are, auth object exists, isLoggedIn is true, and access is granted.
-      // If they aren't, auth is null, isLoggedIn is false, and access is denied.
-      // NextAuth will automatically redirect them to the signIn page on a `false` return.
+      const protectedRoutes = ["/dashboard", "/feed", "/habits", "/settings"];
 
-      // For this architecture, a simple check is the most robust.
-      // The logic to redirect logged-in users away from the login page
-      // can be handled elsewhere or added here if needed, but this is the core.
-      return isLoggedIn;
+      const isProtectedRoute = protectedRoutes.some((route) =>
+        nextUrl.pathname.startsWith(route)
+      );
+
+      if (isProtectedRoute) {
+        if (isLoggedIn) return true; // Allow access if on a protected route and logged in.
+        return false; // Otherwise, redirect to the sign-in page.
+      }
+
+      // Allow access to all other routes (e.g., homepage, auth pages) by default.
+      return true;
     },
   },
 
-  providers: [], // Must be empty for middleware
+  providers: [], // Must be empty for middleware config.
 } satisfies NextAuthConfig;
