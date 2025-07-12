@@ -1,17 +1,10 @@
 // lib/auth.ts
-
 import NextAuth from "next-auth";
 import GitHub from "next-auth/providers/github";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import prisma from "./prisma";
+import { authConfig } from "../auth.config";
 
-// এই আর্কিটেকচারে, auth.config.ts-এর আর প্রয়োজন নেই,
-// কারণ middleware সরাসরি এই ফাইল থেকে auth ইম্পোর্ট করতে পারে
-// যদি আমরা এটিকে Edge-compatible রাখি। কিন্তু Prisma ব্যবহারের কারণে তা সম্ভব নয়।
-// তাই আমরা আবার দ্বি-ফাইল পদ্ধতিতে ফিরে যাচ্ছি যা সবচেয়ে নির্ভরযোগ্য।
-// অনুগ্রহ করে নিশ্চিত করুন যে আপনার auth.config.ts ফাইলটিও সঠিক আছে।
-
-// এনভায়রনমেন্ট ভেরিয়েবল চেক
 const GITHUB_ID = process.env.AUTH_GITHUB_ID;
 const GITHUB_SECRET = process.env.AUTH_GITHUB_SECRET;
 
@@ -23,17 +16,22 @@ if (!GITHUB_SECRET) {
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  // এই কনফিগারেশনটি auth.config.ts থেকে আসবে
-  // pages: { signIn: '/api/auth/signin' },
-  // secret: process.env.AUTH_SECRET,
+  // `authConfig`-কে স্প্রেড করার মাধ্যমে pages এবং authorized কলব্যাক আসছে
+  ...authConfig,
 
   adapter: PrismaAdapter(prisma),
+
+  /**
+   * মূল পরিবর্তন: আমরা ডিফল্ট 'jwt' স্ট্র্যাটেজি ব্যবহার করছি।
+   * এটি middleware-এর সাথে CSRF এবং সেশন হ্যান্ডলিং-এর জন্য সবচেয়ে স্থিতিশীল।
+   */
   session: { strategy: "jwt" },
 
   providers: [
     GitHub({
       clientId: GITHUB_ID,
       clientSecret: GITHUB_SECRET,
+      // আপনার কাস্টম প্রোফাইল ফাংশন
       profile(profile) {
         return {
           id: profile.id.toString(),
@@ -47,9 +45,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
 
   callbacks: {
-    // `authorized` কলব্যাকের লজিকটি এখন auth.config.ts-এ থাকবে
+    ...authConfig.callbacks, // authorized কলব্যাকটি মার্জ করা হচ্ছে
 
-    // JWT টোকেনকে সমৃদ্ধ করার জন্য
+    // `jwt` কলব্যাকটি একটি JWT তৈরি বা আপডেট করার সময় কল করা হয়
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
@@ -57,7 +55,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
       return token;
     },
-    // সেশন অবজেক্টকে সমৃদ্ধ করার জন্য
+
+    // `session` কলব্যাকটি JWT থেকে তথ্য নিয়ে session.user অবজেক্টে যোগ করে
     async session({ session, token }) {
       if (session.user && token.id) {
         session.user.id = token.id as string;
