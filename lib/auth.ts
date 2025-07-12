@@ -1,8 +1,15 @@
+// lib/auth.ts
+
 import NextAuth from "next-auth";
 import GitHub from "next-auth/providers/github";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import prisma from "./prisma";
-import { authConfig } from "@/auth.config";
+
+// এই আর্কিটেকচারে, auth.config.ts-এর আর প্রয়োজন নেই,
+// কারণ middleware সরাসরি এই ফাইল থেকে auth ইম্পোর্ট করতে পারে
+// যদি আমরা এটিকে Edge-compatible রাখি। কিন্তু Prisma ব্যবহারের কারণে তা সম্ভব নয়।
+// তাই আমরা আবার দ্বি-ফাইল পদ্ধতিতে ফিরে যাচ্ছি যা সবচেয়ে নির্ভরযোগ্য।
+// অনুগ্রহ করে নিশ্চিত করুন যে আপনার auth.config.ts ফাইলটিও সঠিক আছে।
 
 // এনভায়রনমেন্ট ভেরিয়েবল চেক
 const GITHUB_ID = process.env.AUTH_GITHUB_ID;
@@ -16,11 +23,9 @@ if (!GITHUB_SECRET) {
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  /**
-   * `auth.config.ts` থেকে `pages`, `secret`, `trustHost` স্প্রেড করা হচ্ছে।
-   * `authorized` কলব্যাকটিও এখানে merge হবে, যা middleware ব্যবহার করবে।
-   */
-  ...authConfig,
+  // এই কনফিগারেশনটি auth.config.ts থেকে আসবে
+  // pages: { signIn: '/api/auth/signin' },
+  // secret: process.env.AUTH_SECRET,
 
   adapter: PrismaAdapter(prisma),
   session: { strategy: "jwt" },
@@ -42,7 +47,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
 
   callbacks: {
-    // `...authConfig.callbacks`-এর মাধ্যমে `authorized` কলব্যাকটি যুক্ত হয়ে গেছে।
+    // `authorized` কলব্যাকের লজিকটি এখন auth.config.ts-এ থাকবে
 
     // JWT টোকেনকে সমৃদ্ধ করার জন্য
     async jwt({ token, user }) {
@@ -62,4 +67,3 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
   },
 });
-

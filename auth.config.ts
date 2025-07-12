@@ -1,8 +1,6 @@
 // auth.config.ts
 import type { NextAuthConfig } from "next-auth";
 
-// এই `authConfig`-এর টাইপ `NextAuthConfig` হওয়ায়,
-// এর ভেতরের `authorized` কলব্যাকের প্যারামিটারগুলো স্বয়ংক্রিয়ভাবে টাইপ পেয়ে যায়।
 export const authConfig = {
   pages: {
     signIn: "/api/auth/signin",
@@ -12,17 +10,21 @@ export const authConfig = {
   trustHost: true,
 
   callbacks: {
-    // TypeScript এখন জানে যে 'auth' এর টাইপ `Session | null` হবে
-    authorized({ auth, request: { nextUrl } }) {
+    authorized({ auth }) {
       const isLoggedIn = !!auth?.user;
 
-      const isOnDashboard = nextUrl.pathname.startsWith("/dashboard");
-      if (isOnDashboard) {
-        return isLoggedIn;
-      }
-      return true;
+      // Since the matcher is already filtering for protected routes,
+      // the only thing we need to do here is check if the user is logged in.
+      // If they are, auth object exists, isLoggedIn is true, and access is granted.
+      // If they aren't, auth is null, isLoggedIn is false, and access is denied.
+      // NextAuth will automatically redirect them to the signIn page on a `false` return.
+
+      // For this architecture, a simple check is the most robust.
+      // The logic to redirect logged-in users away from the login page
+      // can be handled elsewhere or added here if needed, but this is the core.
+      return isLoggedIn;
     },
   },
 
-  providers: [],
+  providers: [], // Must be empty for middleware
 } satisfies NextAuthConfig;
